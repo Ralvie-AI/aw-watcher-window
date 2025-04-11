@@ -176,6 +176,13 @@ func start() {
     object: nil
   )
 
+  NSWorkspace.shared.notificationCenter.addObserver(
+        main,
+        selector: #selector(main.applicationLaunched(_:)),
+        name: NSWorkspace.didLaunchApplicationNotification,
+        object: nil
+    )
+
   main.focusedAppChanged()
 }
 
@@ -360,6 +367,20 @@ class MainThing {
     oldWindow = window
   }
 
+  @objc func applicationLaunched(_ notification: Notification) {
+        // Get the launched application information
+        if let userInfo = notification.userInfo,
+           let app = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
+            log("New app launched: \(app.localizedName ?? "Unknown")")
+
+            // Handle the new app (e.g., send heartbeat or start tracking)
+            let nowTime = Date.now
+            let message = NetworkMessage(app: app.localizedName ?? "Unknown", title: "New Application Launched", url: nil)
+            let heartbeat = Heartbeat(timestamp: nowTime, data: message)
+            sendHeartbeat(heartbeat)
+        }
+    }
+
   @objc func focusedAppChanged() {
     debug("Focused app changed")
 
@@ -370,6 +391,8 @@ class MainThing {
         CFRunLoopMode.defaultMode
       )
     }
+
+
 
     guard let frontmost = NSWorkspace.shared.frontmostApplication else {
       log("Failed to get frontmost application from app change notification")
