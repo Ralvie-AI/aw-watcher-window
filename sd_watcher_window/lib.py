@@ -39,13 +39,11 @@ def get_current_window_macos(strategy: str) -> Optional[dict]:
     # `jxa` is the default & preferred strategy. It includes the url + incognito status
     # Returns information about the current platform.
     if strategy == "jxa":
-        from . import macos_jxa
-
-        return macos_jxa.getInfo()
+        pass
     elif strategy == "applescript":
-        from . import macos_applescript
-
-        return macos_applescript.getInfo()
+        pass
+    else:
+        raise FatalError(f"invalid strategy '{strategy}'")
 
 
 def get_current_window_windows() -> Optional[dict]:
@@ -69,9 +67,13 @@ def get_current_window_windows() -> Optional[dict]:
         title = "unknown"
 
     # Returns a dictionary with app title url
-    if "chrome" in app or "firefox" in app or "opera" in app:
-        url = windows.get_current_tab_info(browser_exe=app.split("*")[0], handle=window_handle)
+    url = windows.get_window_url(window_handle) 
+    if url:
         return {"app": app, "title": title, "url": url}
+    
+    # if "chrome" in app or "firefox" in app or "opera" in app:
+    #     url = windows.get_current_tab_info(browser_exe=app.split("*")[0], handle=window_handle)
+    #     return {"app": app, "title": title, "url": url}
 
     return {"app": app, "title": title}
 

@@ -8,6 +8,8 @@ import win32gui
 import win32api
 import win32process
 from pywinauto import Application
+import uiautomation as auto
+
 
 def get_app_path(hwnd) -> Optional[str]:
     """
@@ -121,6 +123,23 @@ def get_current_tab_info(browser_exe: str, handle: str) -> str:
     except Exception as e:
         return None
 
+def get_window_url(hwnd):
+        
+    class_name = win32gui.GetClassName(hwnd)
+    
+    if class_name == "Chrome_WidgetWin_1":
+        window = auto.WindowControl(searchDepth=1, ClassName="Chrome_WidgetWin_1")
+        addr_bar = window.EditControl()
+        print("asfd", addr_bar)
+        print("asfd 222", dir(addr_bar))
+        return addr_bar.GetValuePattern().Value
+
+    elif class_name == "MozillaWindowClass":
+        window = auto.WindowControl(searchDepth=1, ClassName="MozillaWindowClass")
+        addr_bar = window.EditControl()
+        return addr_bar.GetValuePattern().Value
+    else:
+        return None
 
 
 
@@ -131,4 +150,5 @@ if __name__ == "__main__":
         hwnd = get_active_window_handle()
         print("Title:", get_window_title(hwnd))
         print("App:", get_app_name(hwnd))
+        print("Url:", get_window_url(hwnd))
         time.sleep(1.0)
