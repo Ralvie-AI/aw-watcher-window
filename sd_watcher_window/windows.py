@@ -130,8 +130,6 @@ def get_window_url(hwnd):
     if class_name == "Chrome_WidgetWin_1":
         window = auto.WindowControl(searchDepth=1, ClassName="Chrome_WidgetWin_1")
         addr_bar = window.EditControl()
-        print("asfd", addr_bar)
-        print("asfd 222", dir(addr_bar))
         return addr_bar.GetValuePattern().Value
 
     elif class_name == "MozillaWindowClass":
