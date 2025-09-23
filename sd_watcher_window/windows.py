@@ -124,20 +124,22 @@ def get_current_tab_info(browser_exe: str, handle: str) -> str:
     except Exception as e:
         return None
 
-def get_window_url(hwnd):
+def get_window_url(hwnd):    
+    try:
+        class_name = win32gui.GetClassName(hwnd)
         
-    class_name = win32gui.GetClassName(hwnd)
-    
-    if class_name == "Chrome_WidgetWin_1":
-        window = auto.WindowControl(searchDepth=1, ClassName="Chrome_WidgetWin_1")
-        addr_bar = window.EditControl()
-        return addr_bar.GetValuePattern().Value
+        if class_name == "Chrome_WidgetWin_1":
+            window = auto.WindowControl(searchDepth=1, ClassName="Chrome_WidgetWin_1")
+            addr_bar = window.EditControl()
+            return addr_bar.GetValuePattern().Value
 
-    elif class_name == "MozillaWindowClass":
-        window = auto.WindowControl(searchDepth=1, ClassName="MozillaWindowClass")
-        addr_bar = window.EditControl()
-        return addr_bar.GetValuePattern().Value
-    else:
+        elif class_name == "MozillaWindowClass":
+            window = auto.WindowControl(searchDepth=1, ClassName="MozillaWindowClass")
+            addr_bar = window.EditControl()
+            return addr_bar.GetValuePattern().Value
+        else:
+            return None
+    except Exception as e:
         return None
 
 
@@ -151,8 +153,18 @@ Much of this derived from: http://stackoverflow.com/a/14973422/965332
 
 def get_app_name_wmi(hwnd) -> Optional[str]:
     """Get application filename given hwnd."""
+    # Validate hwnd
+    if not isinstance(hwnd, int) or hwnd == 0:
+        return None
+
+    # Get PID
+    try:
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+    except Exception:
+        return None
+    
     name = None
-    _, pid = win32process.GetWindowThreadProcessId(hwnd)
+    # _, pid = win32process.GetWindowThreadProcessId(hwnd)
     for p in c.query("SELECT Name FROM Win32_Process WHERE ProcessId = %s" % str(pid)):
         name = p.Name
         break
