@@ -7,6 +7,7 @@ import time
 import win32gui
 import win32api
 import win32process
+import wmi
 from pywinauto import Application
 import uiautomation as auto
 
@@ -140,6 +141,36 @@ def get_window_url(hwnd):
         return None
 
 
+# WMI-version, used as fallback if win32gui/win32process/win32api fails (such as for "run as admin" processes)
+
+c = wmi.WMI()
+
+"""
+Much of this derived from: http://stackoverflow.com/a/14973422/965332
+"""
+
+def get_app_name_wmi(hwnd) -> Optional[str]:
+    """Get application filename given hwnd."""
+    name = None
+    _, pid = win32process.GetWindowThreadProcessId(hwnd)
+    for p in c.query("SELECT Name FROM Win32_Process WHERE ProcessId = %s" % str(pid)):
+        name = p.Name
+        break
+    return name
+
+
+def get_app_path_wmi(hwnd) -> Optional[str]:
+    """Get application path given hwnd."""
+    path = None
+
+    _, pid = win32process.GetWindowThreadProcessId(hwnd)
+    for p in c.query(
+        "SELECT ExecutablePath FROM Win32_Process WHERE ProcessId = %s" % str(pid)
+    ):
+        path = p.ExecutablePath
+        break
+
+    return path
 
 # This function is called from the main loop.
 if __name__ == "__main__":
