@@ -1,8 +1,15 @@
 import logging
+import subprocess
 from multiprocessing import Process
 
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+# Supported browsers with their bundle IDs
+BROWSERS = {
+    "Google Chrome": "com.google.Chrome",
+    "Microsoft Edge": "com.microsoft.edgemac",
+    "Safari": "com.apple.Safari"
+}
 
 def background_ensure_permissions() -> None:
     """
@@ -13,6 +20,21 @@ def background_ensure_permissions() -> None:
     """
     permission_process = Process(target=ensure_permissions, args=(()))
     permission_process.start()
+    
+    for browser_name, bundle_id in BROWSERS.items():
+        try:
+            # AppleScript to trigger Automation popup via bundle ID
+            script = f'''
+            tell application id "{bundle_id}"
+                if it is running then
+                    get name of windows
+                end if
+            end tell
+            '''
+            subprocess.run(["osascript", "-e", script], check=True)
+            logger.info(f"Triggered Automation prompt for {browser_name} ({bundle_id})")
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"Failed to trigger {browser_name} ({bundle_id}): {e}")
     return
 
 
