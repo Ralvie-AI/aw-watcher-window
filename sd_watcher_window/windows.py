@@ -1,8 +1,8 @@
-from logging import exception
-from typing import Optional
-
 import os
 import time
+import ctypes
+from logging import exception
+from typing import Optional
 
 import win32gui
 import win32api
@@ -10,6 +10,7 @@ import win32process
 import wmi
 from pywinauto import Application
 import uiautomation as auto
+import psutil
 
 
 def get_app_path(hwnd) -> Optional[str]:
@@ -33,7 +34,7 @@ def get_app_path(hwnd) -> Optional[str]:
 
     return path
 
-def get_app_name(hwnd) -> Optional[str]:
+def get_app_name_old(hwnd) -> Optional[str]:
     """
      Get name of application. This is the same as : func : ` get_app_path ` but returns the basename rather than the full path
      
@@ -142,6 +143,45 @@ def get_window_url(hwnd):
     except Exception as e:
         return None
 
+def get_file_description(file_path):
+    """Return the FileDescription from the version info of the file."""
+    size = ctypes.windll.version.GetFileVersionInfoSizeW(file_path, None)
+    if not size:
+        return None
+
+    res = ctypes.create_string_buffer(size)
+    ctypes.windll.version.GetFileVersionInfoW(file_path, None, size, res)
+
+    r_trans = ctypes.c_void_p()
+    l_size = ctypes.c_uint()
+    if not ctypes.windll.version.VerQueryValueW(res, '\\VarFileInfo\\Translation', ctypes.byref(r_trans), ctypes.byref(l_size)):
+        return None
+
+    # Extract language and codepage
+    lang, codepage = ctypes.cast(r_trans.value, ctypes.POINTER(ctypes.c_ushort * 2)).contents
+    sub_block = f'\\StringFileInfo\\{lang:04x}{codepage:04x}\\FileDescription'
+
+    r_ptr = ctypes.c_wchar_p()
+    if ctypes.windll.version.VerQueryValueW(res, sub_block, ctypes.byref(r_ptr), ctypes.byref(l_size)):
+        return r_ptr.value
+    return None
+
+def get_app_name(hwnd):
+
+    if not hwnd:
+        return None
+
+    _, pid = win32process.GetWindowThreadProcessId(hwnd)
+    try:
+        process = psutil.Process(pid)
+        exe_path = process.exe()
+        desc = get_file_description(exe_path)
+        if desc:
+            return desc  # e.g. "Visual Studio Code"
+        return process.name()  # fallback "Code.exe"
+    except Exception as e:
+        print("Error:", e)
+        return None
 
 # WMI-version, used as fallback if win32gui/win32process/win32api fails (such as for "run as admin" processes)
 
