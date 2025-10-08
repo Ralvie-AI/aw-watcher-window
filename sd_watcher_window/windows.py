@@ -178,6 +178,8 @@ def get_app_name(hwnd):
         desc = get_file_description(exe_path)
         if desc:
             return desc  # e.g. "Visual Studio Code"
+        if process.name() == "sd-main.exe":
+            return "Sundial"
         return process.name()  # fallback "Code.exe"
     except Exception as e:
         print("Error:", e)

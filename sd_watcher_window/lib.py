@@ -3,6 +3,8 @@ from typing import Optional
 
 from .exceptions import FatalError
 
+EXCLUDE_APPS = ["Visual Studio Code", "Postman"]
+
 
 def get_current_window_linux() -> Optional[dict]:
     """
@@ -71,11 +73,12 @@ def get_current_window_windows() -> Optional[dict]:
     # Set title to unknown.
     if title is None:
         title = "unknown"
-
+    
     # Returns a dictionary with app title url
-    url = windows.get_window_url(window_handle) 
-    if url:
-        return {"app": app, "title": title, "url": url}
+    if app not in EXCLUDE_APPS:
+        url = windows.get_window_url(window_handle) 
+        if url:
+            return {"app": app, "title": title, "url": url}    
     
     # if "chrome" in app or "firefox" in app or "opera" in app:
     #     url = windows.get_current_tab_info(browser_exe=app.split("*")[0], handle=window_handle)
