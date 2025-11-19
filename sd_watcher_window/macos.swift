@@ -281,6 +281,7 @@ class MainThing {
     "Google Chrome Canary",
     "Chromium",
     "Brave Browser",
+    "Microsoft Edge"
   ]
 
   let BLACKLISTED_APPS = ["System Settings"]
