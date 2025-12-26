@@ -6,6 +6,8 @@ import sys
 from datetime import datetime, timezone
 from time import sleep
 
+import psutil
+
 from sd_client import ActivityWatchClient
 from sd_core.log import setup_logging
 from sd_core.models import Event
@@ -36,6 +38,27 @@ def kill_process(pid):
     except ProcessLookupError:
         logger.info("Process {} already dead".format(pid))
 
+def is_already_running() -> bool:
+    """Checks for another instance of the bundled .exe or script."""
+    current_pid = os.getpid()
+    
+    # If bundled by PyInstaller, sys.executable is the .exe path
+    # If running as script, sys.executable is python.exe (we use __file__ instead)
+    if getattr(sys, 'frozen', False):
+        current_name = os.path.basename(sys.executable)
+    else:
+        current_name = os.path.basename(__file__)
+    
+    try:
+        for proc in psutil.process_iter(['pid', 'name']):
+            # We filter for the name and ensure it's not THIS specific process
+            if proc.info['name'] and proc.info['name'].lower() == current_name.lower():
+                if proc.info['pid'] != current_pid:
+                    return True
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        pass
+    return False
+
 
 def main():
     """
@@ -56,6 +79,22 @@ def main():
         log_stderr=True,
         log_file=True,
     )
+
+
+    # Check before initializing the watcher or logs
+    current_pid = os.getpid()
+    logger.info(f"current_pid = > {current_pid}")
+    if getattr(sys, 'frozen', False):
+        current_name = os.path.basename(sys.executable)
+    else:
+        current_name = os.path.basename(__file__)
+
+    logger.info(f"current_name = > {current_name}")
+    if is_already_running():
+        # Using stdout because logs aren't initialized yet
+        logger.info("Another instance is already running. Closing this one.")
+        sys.exit(0)
+
 
     # Ensure permissions are available on the system.
     if sys.platform == "darwin":
