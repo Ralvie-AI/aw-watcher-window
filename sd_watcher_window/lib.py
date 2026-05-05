@@ -1,6 +1,8 @@
 import sys
 from typing import Optional
 
+import win32gui
+
 from .exceptions import FatalError
 
 EXCLUDE_APPS = ["Visual Studio Code", "Postman"]
@@ -108,6 +110,48 @@ def get_current_window(strategy: Optional[str] = None) -> Optional[dict]:
             raise FatalError("macOS strategy not specified")
         return get_current_window_macos(strategy)
     elif sys.platform in ["win32", "cygwin"]:
+        # return get_current_window_windows()
+        if get_real_connection_status()[0]:
+            return {'app': 'AnyDesk', 'title': 'AnyDesk'}
         return get_current_window_windows()
     else:
         raise FatalError(f"Unknown platform: {sys.platform}")
+
+
+def get_real_connection_status():
+    session_found = False
+    is_waiting = False
+    target_id = ""
+
+    def callback(hwnd, extra):
+        nonlocal session_found, is_waiting, target_id
+        if win32gui.IsWindowVisible(hwnd):
+            title = win32gui.GetWindowText(hwnd)
+            
+            # Identify the AnyDesk Session Window
+            if "AnyDesk" in title and any(char.isdigit() for char in title):
+                session_found = True
+                target_id = title
+                
+                # Internal check: Look for the "Connecting..." text within this window
+                # We check all child windows of the AnyDesk session
+                def child_callback(child_hwnd, _):
+                    nonlocal is_waiting
+                    child_text = win32gui.GetWindowText(child_hwnd)
+                    if "Connecting" in child_text:
+                        is_waiting = True
+                
+                try:
+                    win32gui.EnumChildWindows(hwnd, child_callback, None)
+                except:
+                    pass
+
+    win32gui.EnumWindows(callback, None)
+
+    if not session_found:
+        return False, "No AnyDesk session active."
+    
+    if is_waiting:
+        return False, f"WAITING: Request sent to {target_id}, but not accepted yet."
+    
+    return True, f"SESSION ACTIVE: You are now controlling {target_id}."
