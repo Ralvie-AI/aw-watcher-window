@@ -85,7 +85,8 @@ def get_current_window_windows() -> Optional[dict]:
     # if "chrome" in app or "firefox" in app or "opera" in app:
     #     url = windows.get_current_tab_info(browser_exe=app.split("*")[0], handle=window_handle)
     #     return {"app": app, "title": title, "url": url}
-
+    if "AnyDesk" == app:
+        return {"app": app, "title": "AnyDesk"}    
     return {"app": app, "title": title}
 
 
