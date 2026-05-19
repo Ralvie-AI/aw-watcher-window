@@ -453,9 +453,25 @@ class MainThing {
 }
 
 // TODO I believe this is handled by the python wrapper so it isn't needed here
+// func checkAccess() -> Bool {
+//   let checkOptPrompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString
+//   let options = [checkOptPrompt: true]
+//   let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary?)
+//   return accessEnabled
+// }
+
+//Show accessibility permission prompt only once when start app
+var alreadyPrompted = false
+ 
 func checkAccess() -> Bool {
+  if alreadyPrompted {
+    return AXIsProcessTrusted()
+  }
+ 
+  alreadyPrompted = true
+ 
   let checkOptPrompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString
   let options = [checkOptPrompt: true]
-  let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary?)
-  return accessEnabled
+ 
+  return AXIsProcessTrustedWithOptions(options as CFDictionary?)
 }
