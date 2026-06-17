@@ -1,4 +1,5 @@
 import Cocoa
+import CoreGraphics
 import ScriptingBridge
 
 @objc protocol ChromeTab {
@@ -140,15 +141,57 @@ encoder.dateEncodingStrategy = .custom({ date, encoder in
 start()
 RunLoop.main.run()
 
-func start() {
-  // Arguments should be:
-  //  - url + port
-  //  - bucket_id
-  //  - hostname
-  //  - client_id
-  let arguments = CommandLine.arguments
+// func start() {
+//   // Arguments should be:
+//   //  - url + port
+//   //  - bucket_id
+//   //  - hostname
+//   //  - client_id
+//   let arguments = CommandLine.arguments
 
-  // Check that we get 4 arguments
+//   // Check that we get 4 arguments
+//   if arguments.count != 5 {
+//     print("Usage: sd-watcher-window <url> <bucket> <hostname> <client>")
+//     exit(1)
+//   }
+
+//   baseurl = arguments[1]
+//   bucketName = arguments[2]
+//   clientHostname = arguments[3]
+//   clientName = arguments[4]
+
+//   guard checkAccess() else {
+//     DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+//       start()
+//     }
+//     return
+//   }
+//   guard checkScreenRecordingAccess() else {
+//     return
+//   }
+
+//   createBucket()
+
+//   // listen for changes in focused application
+//   NSWorkspace.shared.notificationCenter.addObserver(
+//     main,
+//     selector: #selector(main.focusedAppChanged),
+//     name: NSWorkspace.didActivateApplicationNotification,
+//     object: nil
+//   )
+
+//   NSWorkspace.shared.notificationCenter.addObserver(
+//         main,
+//         selector: #selector(main.applicationLaunched(_:)),
+//         name: NSWorkspace.didLaunchApplicationNotification,
+//         object: nil
+//     )
+
+//   main.focusedAppChanged()
+// }
+
+func start() {
+  let arguments = CommandLine.arguments
   if arguments.count != 5 {
     print("Usage: sd-watcher-window <url> <bucket> <hostname> <client>")
     exit(1)
@@ -160,47 +203,71 @@ func start() {
   clientName = arguments[4]
 
   guard checkAccess() else {
-    DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-      start()
-    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 10) { start() }
     return
   }
+  guard checkScreenRecordingAccess() else { return }
 
-  createBucket()
+  Task {
+    // waiting Server build Bucket 
+    await createBucket()
 
-  // listen for changes in focused application
-  NSWorkspace.shared.notificationCenter.addObserver(
-    main,
-    selector: #selector(main.focusedAppChanged),
-    name: NSWorkspace.didActivateApplicationNotification,
-    object: nil
-  )
-
-  NSWorkspace.shared.notificationCenter.addObserver(
-        main,
-        selector: #selector(main.applicationLaunched(_:)),
-        name: NSWorkspace.didLaunchApplicationNotification,
-        object: nil
+    NSWorkspace.shared.notificationCenter.addObserver(
+      main,
+      selector: #selector(main.focusedAppChanged),
+      name: NSWorkspace.didActivateApplicationNotification,
+      object: nil
     )
 
-  main.focusedAppChanged()
+    NSWorkspace.shared.notificationCenter.addObserver(
+          main,
+          selector: #selector(main.applicationLaunched(_:)),
+          name: NSWorkspace.didLaunchApplicationNotification,
+          object: nil
+    )
+
+    main.focusedAppChanged()
+  }
 }
 
 // TODO might be better to have the python wrapper create this before launching the swift application
-func createBucket() {
+// func createBucket() {
+//   let payload = try! encoder.encode(
+//     Bucket(client: clientName, type: "currentwindow", hostname: clientHostname))
+
+//   let url = URL(string: "\(baseurl)/api/0/buckets/\(bucketName)")!
+//   Task {
+//     var urlRequest = URLRequest(url: url)
+//     urlRequest.httpMethod = "POST"
+//     urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
+//     let (_, response) = try await URLSession.shared.upload(for: urlRequest, from: payload)
+//     guard (200...299).contains((response as! HTTPURLResponse).statusCode) else {
+//       log("Failed to create bucket")
+//       return
+//     }
+//   }
+// }
+
+
+func createBucket() async {
   let payload = try! encoder.encode(
     Bucket(client: clientName, type: "currentwindow", hostname: clientHostname))
 
   let url = URL(string: "\(baseurl)/api/0/buckets/\(bucketName)")!
-  Task {
-    var urlRequest = URLRequest(url: url)
-    urlRequest.httpMethod = "POST"
-    urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+  var urlRequest = URLRequest(url: url)
+  urlRequest.httpMethod = "POST"
+  urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
+  
+  do {
     let (_, response) = try await URLSession.shared.upload(for: urlRequest, from: payload)
     guard (200...299).contains((response as! HTTPURLResponse).statusCode) else {
       log("Failed to create bucket")
       return
     }
+    log("Bucket created successfully")
+  } catch {
+    log("Error creating bucket: \(error)")
   }
 }
 
@@ -475,3 +542,62 @@ func checkAccess() -> Bool {
  
   return AXIsProcessTrustedWithOptions(options as CFDictionary?)
 }
+
+// //Show screen recording permission prompt only once when start app
+// var alreadyPromptedScreenRecording = false
+// func checkScreenRecordingAccess() -> Bool {
+
+//     if CGPreflightScreenCaptureAccess() {
+//         return true
+//     }
+
+//     // prevent repeated popup/settings open
+//     if alreadyPromptedScreenRecording {
+//         return false
+//     }
+
+//     alreadyPromptedScreenRecording = true
+
+//     let granted = CGRequestScreenCaptureAccess()
+
+//     if granted {
+//         return true
+//     }
+
+//     log("Screen Recording permission denied")
+
+//     if let url = URL(
+//         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+//     ) {
+//         NSWorkspace.shared.open(url)
+//     }
+
+//     DispatchQueue.main.async {
+//         let alert = NSAlert()
+
+//         alert.messageText = "Screen Recording Permission Required"
+
+//         alert.informativeText = """
+//         Please enable Screen Recording permission for this app.
+
+//         System Settings → Privacy & Security
+//         → Screen & System Audio Recording
+//         """
+
+//         alert.addButton(withTitle: "Open Settings")
+//         alert.addButton(withTitle: "Cancel")
+
+//         let response = alert.runModal()
+
+//         if response == .alertFirstButtonReturn {
+
+//             if let url = URL(
+//                 string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+//             ) {
+//                 NSWorkspace.shared.open(url)
+//             }
+//         }
+//     }
+
+//     return false
+// }
