@@ -170,7 +170,7 @@ def heartbeat_loop(client, bucket_id, poll_time, strategy, exclude_title=False):
 
         current_window = None
         try:
-            current_window = get_current_window(strategy)
+            current_window = get_current_window(str(strategy))
             logger.debug(current_window)
         except (FatalError, OSError):
             # Fatal exceptions should quit the program

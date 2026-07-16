@@ -6,3 +6,5 @@ dist
 *.swp
 .mypy_cache
 sd-watcher-window-macos
+*.c
+*.pyd

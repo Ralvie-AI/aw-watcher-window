@@ -11,7 +11,6 @@ extensions = [
     Extension("config", ["config.py"]),
     Extension("lib", ["lib.py"]),
     Extension("main", ["main.py"]),
-    Extension("main", ["main.py"]),    
 ]
 
 
