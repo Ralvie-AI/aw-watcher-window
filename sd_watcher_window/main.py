@@ -11,6 +11,7 @@ import psutil
 from sd_client import ActivityWatchClient
 from sd_core.log import setup_logging
 from sd_core.models import Event
+from sd_core.const import LOGGING_VERBOSE
 
 from .config import parse_args
 from .exceptions import FatalError
@@ -171,7 +172,8 @@ def heartbeat_loop(client, bucket_id, poll_time, strategy, exclude_title=False):
         current_window = None
         try:
             current_window = get_current_window(str(strategy))
-            logger.debug(current_window)
+            if LOGGING_VERBOSE == 1:
+                logger.info(f"current_window => {current_window}")
         except (FatalError, OSError):
             # Fatal exceptions should quit the program
             try:
