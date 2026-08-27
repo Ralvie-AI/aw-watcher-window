@@ -1,6 +1,8 @@
 import Cocoa
 import CoreGraphics
 import ScriptingBridge
+import Foundation
+import Security
 
 @objc protocol ChromeTab {
   @objc optional var URL: String { get }
@@ -119,11 +121,101 @@ func error(_ msg: String) {
 }
 
 // Placeholder values, set in start() from CLI arguments
-var baseurl = "http://localhost:7600"
+var baseurl = "https://localhost:7600"
 // NOTE: this differs from the hostname we get from Python, here we get `.local`, but in Python we get `.localdomain`
 var clientHostname = ProcessInfo.processInfo.hostName
 var clientName = "sd-watcher-window"
 var bucketName = "\(clientName)_\(clientHostname)"
+
+// -------config cert zone---------
+let CERT_FILE = "/Users/armatura/Library/Application Support/Sundial/tls/localhost_swift.der"
+// Read certificate data
+let localCertificateData = try Data(
+    contentsOf: URL(fileURLWithPath: CERT_FILE)
+)
+
+final class SSLDelegate: NSObject, URLSessionDelegate {
+
+    private let localCertificateData: Data
+
+    init(certificateData: Data) {
+        self.localCertificateData = certificateData
+        super.init()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (
+            URLSession.AuthChallengeDisposition,
+            URLCredential?
+        ) -> Void
+    ) {
+
+        guard
+            challenge.protectionSpace.authenticationMethod
+                == NSURLAuthenticationMethodServerTrust,
+            let serverTrust =
+                challenge.protectionSpace.serverTrust
+        else {
+            completionHandler(
+                .performDefaultHandling,
+                nil
+            )
+            return
+        }
+
+        guard let serverCertificate =
+                (SecTrustCopyCertificateChain(serverTrust)
+                    as? [SecCertificate])?.first
+        else {
+            completionHandler(
+                .cancelAuthenticationChallenge,
+                nil
+            )
+            return
+        }
+
+        let serverCertificateData =
+            SecCertificateCopyData(
+                serverCertificate
+            ) as Data
+
+        // Compare
+        guard serverCertificateData ==
+              localCertificateData
+        else {
+            print("CERTIFICATE MISMATCH")
+
+            completionHandler(
+                .cancelAuthenticationChallenge,
+                nil
+            )
+            return
+        }
+
+        log("CERTIFICATE MATCH")
+
+        // Trust server certificate
+        completionHandler(
+            .useCredential,
+            URLCredential(
+                trust: serverTrust
+            )
+        )
+    }
+}
+
+// Create session
+let delegate = SSLDelegate(
+    certificateData: localCertificateData
+)
+let session = URLSession(
+    configuration: .default,
+    delegate: delegate,
+    delegateQueue: nil
+)
+// -------END config cert zone---------
 
 let main = MainThing()
 var oldHeartbeat: Heartbeat?
@@ -141,55 +233,6 @@ encoder.dateEncodingStrategy = .custom({ date, encoder in
 start()
 RunLoop.main.run()
 
-// func start() {
-//   // Arguments should be:
-//   //  - url + port
-//   //  - bucket_id
-//   //  - hostname
-//   //  - client_id
-//   let arguments = CommandLine.arguments
-
-//   // Check that we get 4 arguments
-//   if arguments.count != 5 {
-//     print("Usage: sd-watcher-window <url> <bucket> <hostname> <client>")
-//     exit(1)
-//   }
-
-//   baseurl = arguments[1]
-//   bucketName = arguments[2]
-//   clientHostname = arguments[3]
-//   clientName = arguments[4]
-
-//   guard checkAccess() else {
-//     DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-//       start()
-//     }
-//     return
-//   }
-//   guard checkScreenRecordingAccess() else {
-//     return
-//   }
-
-//   createBucket()
-
-//   // listen for changes in focused application
-//   NSWorkspace.shared.notificationCenter.addObserver(
-//     main,
-//     selector: #selector(main.focusedAppChanged),
-//     name: NSWorkspace.didActivateApplicationNotification,
-//     object: nil
-//   )
-
-//   NSWorkspace.shared.notificationCenter.addObserver(
-//         main,
-//         selector: #selector(main.applicationLaunched(_:)),
-//         name: NSWorkspace.didLaunchApplicationNotification,
-//         object: nil
-//     )
-
-//   main.focusedAppChanged()
-// }
-
 func start() {
   let arguments = CommandLine.arguments
   if arguments.count != 5 {
@@ -206,7 +249,6 @@ func start() {
     DispatchQueue.main.asyncAfter(deadline: .now() + 10) { start() }
     return
   }
-  guard checkScreenRecordingAccess() else { return }
 
   Task {
     // waiting Server build Bucket 
@@ -230,24 +272,6 @@ func start() {
   }
 }
 
-// TODO might be better to have the python wrapper create this before launching the swift application
-// func createBucket() {
-//   let payload = try! encoder.encode(
-//     Bucket(client: clientName, type: "currentwindow", hostname: clientHostname))
-
-//   let url = URL(string: "\(baseurl)/api/0/buckets/\(bucketName)")!
-//   Task {
-//     var urlRequest = URLRequest(url: url)
-//     urlRequest.httpMethod = "POST"
-//     urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
-//     let (_, response) = try await URLSession.shared.upload(for: urlRequest, from: payload)
-//     guard (200...299).contains((response as! HTTPURLResponse).statusCode) else {
-//       log("Failed to create bucket")
-//       return
-//     }
-//   }
-// }
-
 
 func createBucket() async {
   let payload = try! encoder.encode(
@@ -260,7 +284,7 @@ func createBucket() async {
   urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
   
   do {
-    let (_, response) = try await URLSession.shared.upload(for: urlRequest, from: payload)
+    let (_, response) = try await session.upload(for: urlRequest, from: payload)
     guard (200...299).contains((response as! HTTPURLResponse).statusCode) else {
       log("Failed to create bucket")
       return
@@ -329,7 +353,7 @@ func sendHeartbeatSingle(_ heartbeat: Heartbeat, pulsetime: Double) async throws
   urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
   let payload = try! encoder.encode(heartbeat)
-  let (_, response) = try await URLSession.shared.upload(for: urlRequest, from: payload)
+  let (_, response) = try await session.upload(for: urlRequest, from: payload)
 
   guard (200...299).contains((response as! HTTPURLResponse).statusCode) else {
     throw HeartbeatError.error(msg: "Failed to send heartbeat: \(response)")
@@ -519,14 +543,6 @@ class MainThing {
   }
 }
 
-// TODO I believe this is handled by the python wrapper so it isn't needed here
-// func checkAccess() -> Bool {
-//   let checkOptPrompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString
-//   let options = [checkOptPrompt: true]
-//   let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary?)
-//   return accessEnabled
-// }
-
 //Show accessibility permission prompt only once when start app
 var alreadyPrompted = false
  
@@ -543,61 +559,3 @@ func checkAccess() -> Bool {
   return AXIsProcessTrustedWithOptions(options as CFDictionary?)
 }
 
-// //Show screen recording permission prompt only once when start app
-// var alreadyPromptedScreenRecording = false
-// func checkScreenRecordingAccess() -> Bool {
-
-//     if CGPreflightScreenCaptureAccess() {
-//         return true
-//     }
-
-//     // prevent repeated popup/settings open
-//     if alreadyPromptedScreenRecording {
-//         return false
-//     }
-
-//     alreadyPromptedScreenRecording = true
-
-//     let granted = CGRequestScreenCaptureAccess()
-
-//     if granted {
-//         return true
-//     }
-
-//     log("Screen Recording permission denied")
-
-//     if let url = URL(
-//         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-//     ) {
-//         NSWorkspace.shared.open(url)
-//     }
-
-//     DispatchQueue.main.async {
-//         let alert = NSAlert()
-
-//         alert.messageText = "Screen Recording Permission Required"
-
-//         alert.informativeText = """
-//         Please enable Screen Recording permission for this app.
-
-//         System Settings → Privacy & Security
-//         → Screen & System Audio Recording
-//         """
-
-//         alert.addButton(withTitle: "Open Settings")
-//         alert.addButton(withTitle: "Cancel")
-
-//         let response = alert.runModal()
-
-//         if response == .alertFirstButtonReturn {
-
-//             if let url = URL(
-//                 string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-//             ) {
-//                 NSWorkspace.shared.open(url)
-//             }
-//         }
-//     }
-
-//     return false
-// }
