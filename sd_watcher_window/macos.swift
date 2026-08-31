@@ -128,7 +128,7 @@ var clientName = "sd-watcher-window"
 var bucketName = "\(clientName)_\(clientHostname)"
 
 // -------config cert zone---------
-let CERT_FILE = "/Users/armatura/Library/Application Support/Sundial/tls/localhost_swift.der"
+let CERT_FILE = "~/Library/Application Support/Sundial/tls/localhost_swift.der"
 // Read certificate data
 let localCertificateData = try Data(
     contentsOf: URL(fileURLWithPath: CERT_FILE)
