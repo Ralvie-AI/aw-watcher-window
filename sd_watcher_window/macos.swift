@@ -141,55 +141,6 @@ encoder.dateEncodingStrategy = .custom({ date, encoder in
 start()
 RunLoop.main.run()
 
-// func start() {
-//   // Arguments should be:
-//   //  - url + port
-//   //  - bucket_id
-//   //  - hostname
-//   //  - client_id
-//   let arguments = CommandLine.arguments
-
-//   // Check that we get 4 arguments
-//   if arguments.count != 5 {
-//     print("Usage: sd-watcher-window <url> <bucket> <hostname> <client>")
-//     exit(1)
-//   }
-
-//   baseurl = arguments[1]
-//   bucketName = arguments[2]
-//   clientHostname = arguments[3]
-//   clientName = arguments[4]
-
-//   guard checkAccess() else {
-//     DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-//       start()
-//     }
-//     return
-//   }
-//   guard checkScreenRecordingAccess() else {
-//     return
-//   }
-
-//   createBucket()
-
-//   // listen for changes in focused application
-//   NSWorkspace.shared.notificationCenter.addObserver(
-//     main,
-//     selector: #selector(main.focusedAppChanged),
-//     name: NSWorkspace.didActivateApplicationNotification,
-//     object: nil
-//   )
-
-//   NSWorkspace.shared.notificationCenter.addObserver(
-//         main,
-//         selector: #selector(main.applicationLaunched(_:)),
-//         name: NSWorkspace.didLaunchApplicationNotification,
-//         object: nil
-//     )
-
-//   main.focusedAppChanged()
-// }
-
 func start() {
   let arguments = CommandLine.arguments
   if arguments.count != 5 {
@@ -206,7 +157,6 @@ func start() {
     DispatchQueue.main.asyncAfter(deadline: .now() + 10) { start() }
     return
   }
-  guard checkScreenRecordingAccess() else { return }
 
   Task {
     // waiting Server build Bucket 
