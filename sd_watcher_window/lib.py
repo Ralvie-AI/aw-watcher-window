@@ -1,12 +1,14 @@
 import sys
 from typing import Optional
-
+import logging 
+from pathlib import Path
 import win32gui
 
 from .exceptions import FatalError
 
 EXCLUDE_APPS = ["Visual Studio Code", "Postman"]
 
+logger = logging.getLogger(__name__)
 
 def get_current_window_linux() -> Optional[dict]:
     """
@@ -63,9 +65,12 @@ def get_current_window_windows() -> Optional[dict]:
     
     try:
         app = windows.get_app_name(window_handle)
+        if app == "LockApp.exe":
+            app = Path(app).stem
     except Exception:  # TODO: narrow down the exception
         # try with wmi method
         app = windows.get_app_name_wmi(window_handle)
+
 
     title = windows.get_window_title(window_handle)
 

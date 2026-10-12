@@ -1,8 +1,11 @@
 import os
 import time
 import ctypes
+import logging
 from logging import exception
 from typing import Optional
+from pathlib import Path
+
 
 import win32gui
 import win32api
@@ -12,6 +15,7 @@ from pywinauto import Application
 import uiautomation as auto
 import psutil
 
+logger = logging.getLogger(__name__)
 
 def get_app_path(hwnd) -> Optional[str]:
     """
@@ -180,7 +184,7 @@ def get_app_name(hwnd):
             return desc  # e.g. "Visual Studio Code"
         if process.name() == "sd-main.exe":
             return "Sundial"
-        return process.name()  # fallback "Code.exe"
+        return Path(process.name()).stem
     except Exception as e:
         print("Error:", e)
         return None
