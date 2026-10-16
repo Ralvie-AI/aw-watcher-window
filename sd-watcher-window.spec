@@ -5,7 +5,10 @@ block_cipher = None
 a = Analysis(
     ["sd_watcher_window/__main__.py"],
     pathex=[],
-    binaries=[("sd_watcher_window/sd-watcher-window-macos", "sd_watcher_window")] if platform.system() == "Darwin" else [],
+    binaries=[
+        ("sd_watcher_window/sd-watcher-window-macos",
+        "sd_watcher_window")
+        ] if platform.system() == "Darwin" else [],
     datas=[
         ("sd_watcher_window/printAppStatus.jxa", "sd_watcher_window"),
     ],
