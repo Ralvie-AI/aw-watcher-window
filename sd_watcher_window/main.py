@@ -5,9 +5,11 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from time import sleep
+from urllib.parse import urlparse
 
 import psutil
 
+from sd_core.server_discovery import get_active_server_url
 from sd_client import ActivityWatchClient
 from sd_core.log import setup_logging
 from sd_core.models import Event
@@ -99,6 +101,13 @@ def main():
     # Ensure permissions are available on the system.
     if sys.platform == "darwin":
         background_ensure_permissions()
+
+    if args.port is None:
+        active_url = get_active_server_url()
+        if active_url:
+            parsed = urlparse(active_url)
+            args.host = parsed.hostname or "127.0.0.1"
+            args.port = parsed.port
 
     client = ActivityWatchClient(
         "sd-watcher-window", host=args.host, port=args.port, testing=args.testing
